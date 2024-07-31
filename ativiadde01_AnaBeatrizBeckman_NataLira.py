@@ -1,103 +1,123 @@
 import os
 import random
 import time
+import heapq
 
-class Environment:
-    def __init__(self, width, height, num_clouds):
-        self.width = width
-        self.height = height
-        self.clouds = set()
-        self.goal_position = (width // 2, height - 1)
-        self.agent_position = (width // 2, 0)
+class Ambiente:
+    def __init__(self, largura, altura, num_nuvens):
+        self.largura = largura
+        self.altura = altura
+        self.nuvens = set()
+        self.posicao_objetivo = (largura // 2, altura - 1)
+        self.posicao_agente = (largura // 2, 0)
 
         # Garante que nuvens não sejam criadas na posição inicial do agente ou no objetivo
-        while len(self.clouds) < num_clouds:
-            cloud_x = random.randint(0, width - 1)
-            cloud_y = random.randint(0, height - 1)
-            if (cloud_x, cloud_y) != self.agent_position and (cloud_x, cloud_y) != self.goal_position:
-                self.clouds.add((cloud_x, cloud_y))
+        while len(self.nuvens) < num_nuvens:
+            nuvem_x = random.randint(0, largura - 1)
+            nuvem_y = random.randint(0, altura - 1)
+            if (nuvem_x, nuvem_y) != self.posicao_agente and (nuvem_x, nuvem_y) != self.posicao_objetivo:
+                self.nuvens.add((nuvem_x, nuvem_y))
 
-    def display(self):
-        for y in range(self.height):
-            for x in range(self.width):
-                if (x, y) in self.clouds:
+    def exibir(self):
+        for y in range(self.altura):
+            for x in range(self.largura):
+                if (x, y) in self.nuvens:
                     print('☁️', end=' ')
-                elif (x, y) == self.agent_position:
+                elif (x, y) == self.posicao_agente:
                     print('🚀', end=' ')
-                elif (x, y) == self.goal_position:
+                elif (x, y) == self.posicao_objetivo:
                     print('🌚', end=' ')
                 else:
                     print(' ', end=' ')
             print()
 
-    def get_perception(self):
-        return self.agent_position, self.goal_position, self.clouds
+    def obter_percepcao(self):
+        return self.posicao_agente, self.posicao_objetivo, self.nuvens
 
-class Agent:
-    def __init__(self, environment):
-        self.environment = environment
-        self.position = (environment.width // 2, 0)
-        self.history = set()
-        self.history.add(self.position)
+class Agente:
+    def __init__(self, ambiente):
+        self.ambiente = ambiente
+        self.posicao = (ambiente.largura // 2, 0)
+        self.historico = set()
+        self.historico.add(self.posicao)
 
-    def select_action(self, perception):
-        agent_x, agent_y = self.position
-        goal_x, goal_y = self.environment.goal_position
-        clouds = self.environment.clouds
+    def selecionar_acao(self, percepcao):
+        agente_x, agente_y = self.posicao
+        objetivo_x, objetivo_y = self.ambiente.posicao_objetivo
+        nuvens = self.ambiente.nuvens
 
-        # Define a prioridade dos movimentos: cima, direita, baixo, esquerda
-        possible_moves = [
-            (agent_x, agent_y + 1),  # Cima
-            (agent_x + 1, agent_y),  # Direita
-            (agent_x, agent_y - 1),  # Baixo
-            (agent_x - 1, agent_y)   # Esquerda
-        ]
+        # Função heurística para o A* (distância de Manhattan)
+        def heuristica(x, y):
+            return abs(x - objetivo_x) + abs(y - objetivo_y)
 
-        # Filtra movimentos válidos: dentro do grid, não em nuvens, e não repetidos
-        valid_moves = [
-            move for move in possible_moves
-            if 0 <= move[0] < self.environment.width and
-               0 <= move[1] < self.environment.height and
-               move not in clouds and
-               move not in self.history
-        ]
+        # Fila de prioridade para o A*
+        fronteira = []
+        heapq.heappush(fronteira, (0, self.posicao))
 
-        if valid_moves:
-            # Seleciona a posição mais próxima do objetivo usando a distância Manhattan
-            return min(valid_moves, key=lambda pos: abs(pos[0] - goal_x) + abs(pos[1] - goal_y))
-        else:
-            return self.position  # Fica na mesma posição se não houver movimentos válidos
+        # Dicionários para armazenar custos e caminhos
+        custo = {self.posicao: 0}
+        caminho = {self.posicao: None}
 
-    def update_state(self, new_position):
-        self.history.add(self.position)
-        self.position = new_position
+        while fronteira:
+            _, atual = heapq.heappop(fronteira)
 
-def simulate(environment, agent, max_steps=150):
-    steps = 0
-    while steps < max_steps:
+            if atual == self.ambiente.posicao_objetivo:
+                # Reconstruir o caminho
+                caminho_ate_objetivo = []
+                while atual is not None:
+                    caminho_ate_objetivo.append(atual)
+                    atual = caminho[atual]
+                return caminho_ate_objetivo[-2]  # Retorna a posição antes da atual
+
+            for movimento in [
+                (atual[0], atual[1] + 1),  # Cima
+                (atual[0] + 1, atual[1]),  # Direita
+                (atual[0], atual[1] - 1),  # Baixo
+                (atual[0] - 1, atual[1])   # Esquerda
+            ]:
+                if 0 <= movimento[0] < self.ambiente.largura and \
+                0 <= movimento[1] < self.ambiente.altura and \
+                movimento not in nuvens:
+
+                    novo_custo = custo[atual] + 1
+                    if movimento not in custo or novo_custo < custo[movimento]:
+                        custo[movimento] = novo_custo
+                        prioridade = novo_custo + heuristica(movimento[0], movimento[1])
+                        heapq.heappush(fronteira, (prioridade, movimento))
+                        caminho[movimento] = atual
+
+        return self.posicao
+
+    def atualizar_estado(self, nova_posicao):
+        self.historico.add(self.posicao)
+        self.posicao = nova_posicao
+
+def simular(ambiente, agente, max_passos=150):
+    passos = 0
+    while passos < max_passos:
         os.system('cls' if os.name == 'nt' else 'clear')
-        perception = environment.get_perception()
-        new_position = agent.select_action(perception)
-        agent.update_state(new_position)
-        environment.agent_position = new_position
-        environment.display()
+        percepcao = ambiente.obter_percepcao()
+        nova_posicao = agente.selecionar_acao(percepcao)
+        agente.atualizar_estado(nova_posicao)
+        ambiente.posicao_agente = nova_posicao
+        ambiente.exibir()
 
-        if new_position == environment.goal_position:
-            print("Foi usado ", steps, "passos para chegar a LUA!")
+        if nova_posicao == ambiente.posicao_objetivo:
+            print("Foi usado ", passos, "passos para chegar a LUA!")
             break
 
-        steps += 1
+        passos += 1
         time.sleep(0.1)
 
-    if steps == max_steps:
-        print("Rocket did not reach the goal in the maximum number of steps.")
+    if passos == max_passos:
+        print("O foguete não alcançou o objetivo no número máximo de passos.")
 
 # Cria o ambiente e o agente
-environment = Environment(50, 30, 150)
-agent = Agent(environment)
+ambiente = Ambiente(30, 25, 100)
+agente = Agente(ambiente)
 
 # Exibe o ambiente inicial
-environment.display()
+ambiente.exibir()
 
 # Executa a simulação
-simulate(environment, agent, max_steps=150)
+simular(ambiente, agente, max_passos=150)
