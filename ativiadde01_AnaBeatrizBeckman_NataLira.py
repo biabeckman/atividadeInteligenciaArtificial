@@ -22,11 +22,11 @@ class Ambiente:
         for y in range(self.altura):
             for x in range(self.largura):
                 if (x, y) in self.nuvens:
-                    print('☁', end=' ')
+                    print('.', end=' ')
                 elif (x, y) == self.posicao_agente:
-                    print('✈', end=' ')
+                    print('!', end=' ')
                 elif (x, y) == self.posicao_objetivo:
-                    print('☽', end=' ')
+                    print('LUA', end=' ')
                 else:
                     print(' ', end=' ')
             print()
